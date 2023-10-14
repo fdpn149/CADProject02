@@ -2,27 +2,30 @@
 
 Manager::Manager()
 {
+	// add begin & end node
 	beginNode = new Node(NodeType::BEGIN, "begin");
 	endNode = new Node(NodeType::END, "end");
 	nodes["begin"] = beginNode;
 	nodes["end"] = endNode;
 
-	glp_term_out(GLP_OFF);
-	columnNode.push_back({});
+	glp_term_out(GLP_OFF);	  // disable glp self output
+	columnNode.push_back({}); // let index 0 is empty (start from 1)
 }
 
 Manager::~Manager()
 {
+	// delete all nodes
 	for (auto i : nodes)
 		delete i.second;
-	glp_delete_prob(lp);
+	glp_delete_prob(lp); // delete glp probe
 }
 
-int Manager::parseInput(char *_mode, char *filename, char *_and_limit, char *_or_limit, char *_not_limit)
+int Manager::parseInput(char *_mode, char *filename, char *and_limit, char *or_limit, char *not_limit)
 {
+	char buffer[1000];
+	file = fopen(filename, "r"); // open file & point to
 
-	file = fopen(filename, "r");
-
+	// can not open file
 	if (file == NULL)
 	{
 		printf("file could not open\n");
@@ -30,14 +33,17 @@ int Manager::parseInput(char *_mode, char *filename, char *_and_limit, char *_or
 	}
 	else
 	{
-		and_limit = atoi(_and_limit);
-		or_limit = atoi(_or_limit);
-		not_limit = atoi(_not_limit);
+		// set and, or, not limit as input provide
+		gate_limit[AND] = atoi(and_limit);
+		gate_limit[OR] = atoi(or_limit);
+		gate_limit[NOT] = atoi(not_limit);
+		gate_limit[END] = 1;
 	}
 
+	// read file content
 	while (fgets(buffer, 1000, file) != NULL) // getLine until EOF
 	{
-		char *word = strtok(buffer, " \n");
+		char *word = strtok(buffer, " \n"); // get a word
 		if (strcmp(word, ".names") == 0)
 			getNames();
 		else if (strcmp(word, ".model") == 0)
@@ -46,10 +52,140 @@ int Manager::parseInput(char *_mode, char *filename, char *_and_limit, char *_or
 			getInputs();
 		else if (strcmp(word, ".outputs") == 0)
 			getOutputs();
-		else if (strcmp(word, ".end") == 0)
+		else if (strcmp(word, ".end") == 0) // file end
 			break;
 	}
-	fclose(file);
+	fclose(file); // close file
+	return 0;
+}
+
+void Manager::getInputs()
+{
+	char *word; // be used to store a word
+
+	// read every input nodes
+	while ((word = strtok(NULL, " \n")) != NULL) // read until new line
+	{
+		// judge "\\n" case
+		if (strcmp(word, "\\") == 0)
+			toNextLine(word); // catch next line content
+
+		// add new input node & initialize
+		Node *newInput = new Node(NodeType::INPUT, word);
+		newInput->predecessor.push_back(beginNode);
+		beginNode->successor.push_back(newInput);
+		nodes[word] = newInput;
+		newInput->asap = 0;	 // set the asap (not important)
+		newInput->ready = 1; // set ready number is 1
+	}
+}
+
+void Manager::getOutputs()
+{
+	char *word; // be used to store a word
+
+	// read every output nodes
+	while ((word = strtok(NULL, " \n")) != NULL) // read until new line
+	{
+		// judge "\\n" case
+		if (strcmp(word, "\\") == 0)
+			toNextLine(word); // catch next line content
+
+		// add new output node & initialize
+		Node *newOutput = new Node(NodeType::UNKNOWN, word);
+		newOutput->successor.push_back(endNode);
+		endNode->predecessor.push_back(newOutput);
+		nodes[word] = newOutput;
+		gateNode.push_back(newOutput); // also push the 'gate' to gateNode vector
+	}
+}
+
+void Manager::getNames()
+{
+	char buffer[1000];
+	char *word;			  // be used to store a word
+	vector<Node *> io;	  // store the gate's input & output nodes
+	int literalCount = 0; // record how many pin the gate has
+
+	// read all inputs & output node the gate has
+	while ((word = strtok(NULL, " \n")) != NULL) // read until new line
+	{
+		literalCount++;
+		auto matchNode_it = nodes.find(word); // find if the pin node is exist
+		if (matchNode_it != nodes.end())
+			io.push_back(matchNode_it->second);
+		else
+		{
+			// create a new node
+			Node *newNode = new Node(NodeType::UNKNOWN, word);
+			nodes[word] = newNode;		 // store the newNode to nodes(map)
+			gateNode.push_back(newNode); // store the newNode to gateNode(vector)
+			io.push_back(newNode);
+		}
+	}
+	Node *currentNode = *io.rbegin(); // get output node (the last one)
+
+	// if only two pins, it must be a NOT
+	if (literalCount == 2)
+	{
+		currentNode->type = NodeType::NOT;
+		// nots.push_back(currentNode);
+		gate_count_limit[NOT]++;
+		fgets(buffer, 1000, file); // eat the redundant line
+	}
+	else // it may be OR/AND
+	{
+		fgets(buffer, 1000, file); // eat next line (to check)
+		bool isOR = false;		   // record is OR or not
+
+		// peek next character
+		char ch = getc(file); // check next char is '.' or not
+		ungetc(ch, file);	  // put it back
+
+		// if the content only has two more line, it must be OR
+		if (ch != '.')
+		{
+			isOR = true;
+
+			// eat redundant lines
+			for (int i = 0; i < literalCount - 2; i++)
+				fgets(buffer, 1000, file);
+		}
+
+		if (isOR)
+		{
+			currentNode->type = NodeType::OR;
+			// ors.push_back(currentNode);
+			gate_count_limit[OR]++;
+		}
+		else
+		{
+			currentNode->type = NodeType::AND;
+			// ands.push_back(currentNode);
+			gate_count_limit[AND]++;
+		}
+	}
+
+	// set connect input nodes to self node
+	for (int i = 0; i < io.size() - 1; i++)
+	{
+		currentNode->predecessor.push_back(io.at(i));
+		io.at(i)->successor.push_back(currentNode);
+	}
+}
+
+void Manager::toNextLine(char *&word)
+{
+	char buffer[1000];
+	fgets(buffer, 1000, file);
+	word = strtok(buffer, " \n");
+}
+
+int Manager::heuristicSolve()
+{
+	int code = schedule();
+	if (code == -1)
+		return -1;
 	return 0;
 }
 
@@ -57,64 +193,33 @@ int Manager::schedule()
 {
 	unordered_set<Node *> nextToDo;
 
+	// choose gates after inputs
 	for (auto node : beginNode->successor)
-	{
-		for (auto child : node->successor)
+		for (auto child_node : node->successor)
 		{
-			child->ready++;
-			child->asap = 1;
-			nextToDo.insert(child);
+			child_node->ready++;
+			child_node->asap = 1;
+			nextToDo.insert(child_node);
 		}
-	}
 
 	int time = 1;
-	int and_count = 0, or_count = 0, not_count = 0;
+	int gate_count[3] = {0};
 
 	while (!(nextToDo.size() == 1 && (*nextToDo.begin())->type == NodeType::END))
 	{
-		if (time > and_total + or_total + not_total)
+		if (time > gate_count_limit[AND] + gate_count_limit[OR] + gate_count_limit[NOT])
 			return -1;
 		unordered_set<Node *> toDo(nextToDo);
 		unordered_set<Node *> toSetReady;
-		vector<Node *> and_result_now, or_result_now, not_result_now;
+		vector<Node *> gate_result_now[3];
 		nextToDo.clear();
 		for (auto node : toDo)
 		{
-			if (node->ready == node->predecessor.size())
+			if (node->ready == node->predecessor.size() && gate_count[node->type] < gate_limit[node->type])
 			{
-				switch (node->type)
-				{
-				case NodeType::AND:
-					if (and_count < and_limit)
-					{
-						and_result_now.push_back(node);
-						and_count++;
-						toSetReady.insert(node);
-					}
-					else
-						nextToDo.insert(node);
-					break;
-				case NodeType::OR:
-					if (or_count < or_limit)
-					{
-						or_result_now.push_back(node);
-						or_count++;
-						toSetReady.insert(node);
-					}
-					else
-						nextToDo.insert(node);
-					break;
-				case NodeType::NOT:
-					if (not_count < not_limit)
-					{
-						not_result_now.push_back(node);
-						not_count++;
-						toSetReady.insert(node);
-					}
-					else
-						nextToDo.insert(node);
-					break;
-				}
+				gate_result_now[node->type].push_back(node);
+				gate_count[node->type]++;
+				toSetReady.insert(node);
 			}
 			else
 			{
@@ -132,112 +237,14 @@ int Manager::schedule()
 				nextToDo.insert(child);
 			}
 		}
-		and_result.push_back(and_result_now);
-		or_result.push_back(or_result_now);
-		not_result.push_back(not_result_now);
-		and_count = or_count = not_count = 0;
+		gate_result_heuristic[AND].push_back(gate_result_now[AND]);
+		gate_result_heuristic[OR].push_back(gate_result_now[OR]);
+		gate_result_heuristic[NOT].push_back(gate_result_now[NOT]);
+		gate_count[AND] = gate_count[OR] = gate_count[NOT] = 0;
 		time++;
 	}
 	latency = time - 1;
 	return 0;
-}
-
-void Manager::toNextLine(char *&word)
-{
-	fgets(buffer, 1000, file);
-	word = strtok(buffer, " \n");
-}
-
-void Manager::getInputs()
-{
-	char *word;
-	while ((word = strtok(NULL, " \n")) != NULL)
-	{
-		if (strcmp(word, "\\") == 0)
-			toNextLine(word);
-		Node *newInput = new Node(NodeType::INPUT, word);
-		newInput->asap = 0;
-		newInput->ready = 1;
-		newInput->predecessor.push_back(beginNode);
-		beginNode->successor.push_back(newInput);
-		nodes[word] = newInput;
-	}
-}
-
-void Manager::getOutputs()
-{
-	char *word;
-	while ((word = strtok(NULL, " \n")) != NULL)
-	{
-		if (strcmp(word, "\\") == 0)
-			toNextLine(word);
-		Node *newOutput = new Node(NodeType::UNKNOWN, word);
-		newOutput->successor.push_back(endNode);
-		endNode->predecessor.push_back(newOutput);
-		nodes[word] = newOutput;
-		gateNode.push_back(newOutput);
-	}
-}
-
-void Manager::getNames()
-{
-	char *word;
-	vector<Node *> io;
-	int literalCount = 0;
-	while ((word = strtok(NULL, " \n")) != NULL) // read all inputs & output
-	{
-		literalCount++;
-		if (nodes.find(word) != nodes.end())
-			io.push_back(nodes[word]);
-		else
-		{
-			Node *newNode = new Node(NodeType::UNKNOWN, word);
-			nodes[word] = newNode;
-			gateNode.push_back(newNode);
-			io.push_back(newNode);
-		}
-	}
-
-	Node *currentNode = *io.rbegin(); // get output
-
-	if (literalCount == 2) // NOT
-	{
-		currentNode->type = NodeType::NOT;
-		// nots.push_back(currentNode);
-		not_total++;
-		fgets(buffer, 1000, file); // eat next line
-	}
-	else
-	{
-		fgets(buffer, 1000, file); // eat next line
-		bool isOR = false;
-		char ch = getc(file); // check next char is '.' or not
-		ungetc(ch, file);
-		if (ch != '.')
-		{
-			isOR = true;
-			for (int i = 0; i < literalCount - 2; i++) // eat lines
-				fgets(buffer, 1000, file);
-		}
-		if (isOR)
-		{
-			currentNode->type = NodeType::OR;
-			// ors.push_back(currentNode);
-			or_total++;
-		}
-		else
-		{
-			currentNode->type = NodeType::AND;
-			// ands.push_back(currentNode);
-			and_total++;
-		}
-	}
-
-	for (int i = 0; i < io.size() - 1; i++) // set input nodes
-	{
-		currentNode->predecessor.push_back(io.at(i));
-		io.at(i)->successor.push_back(currentNode);
-	}
 }
 
 void Manager::printResult()
@@ -246,30 +253,30 @@ void Manager::printResult()
 	for (int i = 0; i < latency; i++)
 	{
 		printf("%d: {", i + 1);
-		if (!and_result.empty() && !and_result.at(i).empty())
+		if (!gate_result_heuristic[AND].empty() && !gate_result_heuristic[AND].at(i).empty())
 		{
-			printf("%s", and_result.at(i).at(0)->name.c_str());
-			for (int j = 1; j < and_result.at(i).size(); j++)
+			printf("%s", gate_result_heuristic[AND].at(i).at(0)->name.c_str());
+			for (int j = 1; j < gate_result_heuristic[AND].at(i).size(); j++)
 			{
-				printf(" %s", and_result.at(i).at(j)->name.c_str());
+				printf(" %s", gate_result_heuristic[AND].at(i).at(j)->name.c_str());
 			}
 		}
 		printf("} {");
-		if (!or_result.empty() && !or_result.at(i).empty())
+		if (!gate_result_heuristic[OR].empty() && !gate_result_heuristic[OR].at(i).empty())
 		{
-			printf("%s", or_result.at(i).at(0)->name.c_str());
-			for (int j = 1; j < or_result.at(i).size(); j++)
+			printf("%s", gate_result_heuristic[OR].at(i).at(0)->name.c_str());
+			for (int j = 1; j < gate_result_heuristic[OR].at(i).size(); j++)
 			{
-				printf(" %s", or_result.at(i).at(j)->name.c_str());
+				printf(" %s", gate_result_heuristic[OR].at(i).at(j)->name.c_str());
 			}
 		}
 		printf("} {");
-		if (!not_result.empty() && !not_result.at(i).empty())
+		if (!gate_result_heuristic[NOT].empty() && !gate_result_heuristic[NOT].at(i).empty())
 		{
-			printf("%s", not_result.at(i).at(0)->name.c_str());
-			for (int j = 1; j < not_result.at(i).size(); j++)
+			printf("%s", gate_result_heuristic[NOT].at(i).at(0)->name.c_str());
+			for (int j = 1; j < gate_result_heuristic[NOT].at(i).size(); j++)
 			{
-				printf(" %s", not_result.at(i).at(j)->name.c_str());
+				printf(" %s", gate_result_heuristic[NOT].at(i).at(j)->name.c_str());
 			}
 		}
 		printf("}\n");
@@ -282,43 +289,24 @@ void Manager::formSlackTable(vector<array<vector<Node *>, 4>> &slackTable)
 	slackTable.resize(latency + 2);
 	for (int i = 0; i < latency; i++)
 	{
-		for (auto node_and : and_result[i])
+		for (int type = AND; type <= NOT; type++)
 		{
-			for (int j = i + 1; j >= node_and->asap; j--)
+			for (auto node : gate_result_heuristic[type][i])
 			{
-				slackTable[j][0].push_back(node_and);
-				columnNode.push_back(make_pair(node_and, j));
-				node_and->canWorkColNodeIndex[j] = columnNode.size() - 1;
-				glp_add_cols(lp, 1);
-				glp_set_col_kind(lp, columnNode.size() - 1, GLP_BV);
-			}
-		}
-		for (auto node_or : or_result[i])
-		{
-			for (int j = i + 1; j >= node_or->asap; j--)
-			{
-				slackTable[j][1].push_back(node_or);
-				columnNode.push_back(make_pair(node_or, j));
-				node_or->canWorkColNodeIndex[j] = columnNode.size() - 1;
-				glp_add_cols(lp, 1);
-				glp_set_col_kind(lp, columnNode.size() - 1, GLP_BV);
-			}
-		}
-		for (auto node_not : not_result[i])
-		{
-			for (int j = i + 1; j >= node_not->asap; j--)
-			{
-				slackTable[j][2].push_back(node_not);
-				columnNode.push_back(make_pair(node_not, j));
-				node_not->canWorkColNodeIndex[j] = columnNode.size() - 1;
-				glp_add_cols(lp, 1);
-				glp_set_col_kind(lp, columnNode.size() - 1, GLP_BV);
+				for (int j = i + 1; j >= node->asap; j--)
+				{
+					slackTable[j][type].push_back(node);
+					columnNode.push_back(make_pair(node, j));
+					node->canWorkColNodeIndex[j] = columnNode.size() - 1;
+					glp_add_cols(lp, 1);
+					glp_set_col_kind(lp, columnNode.size() - 1, GLP_BV);
+				}
 			}
 		}
 	}
 	for (int j = latency + 1; j >= endNode->asap; j--)
 	{
-		slackTable[j][3].push_back(endNode);
+		slackTable[j][END].push_back(endNode);
 		columnNode.push_back(make_pair(endNode, j));
 		endNode->canWorkColNodeIndex[j] = columnNode.size() - 1;
 		glp_add_cols(lp, 1);
@@ -333,9 +321,6 @@ void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 	vector<double> ar(1, 0.0);
 	vector<int> ia(1, 0), ja(1, 0);
 
-	vector<double> debug_row;
-	vector<pair<string, int>> debug_col;
-
 	int same = 0, order = 0, level = 0;
 	for (const auto &node : gateNode)
 	{
@@ -345,7 +330,6 @@ void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 			total_row++;
 			glp_add_rows(lp, 1);
 			glp_set_row_bnds(lp, total_row, GLP_FX, 1.0, 1.0);
-			debug_row.push_back(1.0);
 
 			for (const auto &canWorkColIndex : node->canWorkColNodeIndex)
 			{
@@ -365,7 +349,7 @@ void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 					total_row++;
 					glp_add_rows(lp, 1);
 					glp_set_row_bnds(lp, total_row, GLP_LO, 1.0, 0.0);
-					debug_row.push_back(1.0);
+
 					for (const auto &parentCanWorkColIndex : parentNode->canWorkColNodeIndex)
 					{
 						ia.push_back(total_row);
@@ -386,59 +370,19 @@ void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 	// x2 + k2 + b2 <= 2
 	for (int i = 1; i <= latency + 1; i++)
 	{
-		if (!slackTable[i][0].empty())
+		for (int type = AND; type <= END; type++)
 		{
-			total_row++;
-			glp_add_rows(lp, 1);
-			glp_set_row_bnds(lp, total_row, GLP_UP, 0.0, (double)and_limit);
-			debug_row.push_back((double)and_limit);
-			for (const auto &node : slackTable[i][0])
+			if (!slackTable[i][type].empty())
 			{
-				ia.push_back(total_row);
-				ja.push_back(node->canWorkColNodeIndex[i]);
-				ar.push_back(1.0);
-			}
-		}
-
-		if (!slackTable[i][1].empty())
-		{
-			total_row++;
-			glp_add_rows(lp, 1);
-			glp_set_row_bnds(lp, total_row, GLP_UP, 0.0, (double)or_limit);
-			debug_row.push_back((double)or_limit);
-			for (const auto &node : slackTable[i][1])
-			{
-				ia.push_back(total_row);
-				ja.push_back(node->canWorkColNodeIndex[i]);
-				ar.push_back(1.0);
-			}
-		}
-
-		if (!slackTable[i][2].empty())
-		{
-			total_row++;
-			glp_add_rows(lp, 1);
-			glp_set_row_bnds(lp, total_row, GLP_UP, 0.0, (double)not_limit);
-			debug_row.push_back((double)not_limit);
-			for (const auto &node : slackTable[i][2])
-			{
-				ia.push_back(total_row);
-				ja.push_back(node->canWorkColNodeIndex[i]);
-				ar.push_back(1.0);
-			}
-		}
-
-		if (!slackTable[i][3].empty())
-		{
-			total_row++;
-			glp_add_rows(lp, 1);
-			glp_set_row_bnds(lp, total_row, GLP_UP, 0.0, 1.0);
-			debug_row.push_back(3);
-			for (const auto &node : slackTable[i][3])
-			{
-				ia.push_back(total_row);
-				ja.push_back(node->canWorkColNodeIndex[i]);
-				ar.push_back(1.0);
+				total_row++;
+				glp_add_rows(lp, 1);
+				glp_set_row_bnds(lp, total_row, GLP_UP, 0.0, (double)gate_limit[type]);
+				for (const auto &node : slackTable[i][type])
+				{
+					ia.push_back(total_row);
+					ja.push_back(node->canWorkColNodeIndex[i]);
+					ar.push_back(1.0);
+				}
 			}
 		}
 	}
@@ -454,7 +398,7 @@ void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 	glp_load_matrix(lp, ar.size() - 1, &ia[0], &ja[0], &ar[0]);
 }
 
-void Manager::glp()
+void Manager::ilpSolve()
 {
 	lp = glp_create_prob();
 	vector<array<vector<Node *>, 4>> slackTable;
@@ -479,21 +423,10 @@ void Manager::printILPResult()
 		{
 			auto nodeTime = columnNode[i];
 			if (nodeTime.first->type != NodeType::END && result.size() < nodeTime.second + 1)
-			{
 				result.resize(nodeTime.second + 1);
-			}
-			switch (nodeTime.first->type)
-			{
-			case NodeType::AND:
-				result[nodeTime.second][0].push_back(nodeTime.first->name);
-				break;
-			case NodeType::OR:
-				result[nodeTime.second][1].push_back(nodeTime.first->name);
-				break;
-			case NodeType::NOT:
-				result[nodeTime.second][2].push_back(nodeTime.first->name);
-				break;
-			}
+
+			if (nodeTime.first->type != NodeType::END)
+				result[nodeTime.second][nodeTime.first->type].push_back(nodeTime.first->name);
 		}
 	}
 

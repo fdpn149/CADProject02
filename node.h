@@ -1,14 +1,14 @@
 #ifndef NODE_H
 #include "lib.h"
 #include <limits>
-enum class NodeType
+enum NodeType
 {
-	BEGIN,
-	INPUT,
 	AND,
 	OR,
 	NOT,
 	END,
+	BEGIN,
+	INPUT,
 	UNKNOWN
 };
 
@@ -21,7 +21,7 @@ public:
 	vector<Node *> predecessor;
 	vector<Node *> successor;
 	int ready = 0;
-	map<int,int> canWorkColNodeIndex;	// timeLevel / index columnNode[canWorkColNodeIndex]
+	map<int, int> canWorkColNodeIndex; // timeLevel / index columnNode[canWorkColNodeIndex]
 	Node(NodeType type, string name);
 };
 
