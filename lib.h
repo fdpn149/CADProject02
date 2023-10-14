@@ -7,11 +7,11 @@
 #include <array>
 #include <map>
 
-using std::string;
-using std::vector;
-using std::unordered_map;
-using std::map;
-using std::unordered_set;
-using std::pair;
-using std::make_pair;
 using std::array;
+using std::make_pair;
+using std::map;
+using std::pair;
+using std::string;
+using std::unordered_map;
+using std::unordered_set;
+using std::vector;

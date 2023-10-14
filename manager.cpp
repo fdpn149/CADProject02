@@ -18,7 +18,7 @@ Manager::~Manager()
 	glp_delete_prob(lp);
 }
 
-int Manager::parseInput(char *filename, char *_and_limit, char *_or_limit, char *_not_limit)
+int Manager::parseInput(char *_mode, char *filename, char *_and_limit, char *_or_limit, char *_not_limit)
 {
 
 	file = fopen(filename, "r");
