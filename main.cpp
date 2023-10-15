@@ -16,7 +16,7 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 	manager.printResult();
-	manager.ilpSolve();
-	manager.printILPResult();
+	// manager.ilpSolve();
+	// manager.printILPResult();
 	return 0;
 }

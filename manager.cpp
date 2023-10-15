@@ -8,6 +8,8 @@ Manager::Manager()
 	nodes["begin"] = beginNode;
 	nodes["end"] = endNode;
 
+	gateNode.push_back(endNode);
+
 	glp_term_out(GLP_OFF);	  // disable glp self output
 	columnNode.push_back({}); // let index 0 is empty (start from 1)
 }
@@ -17,7 +19,7 @@ Manager::~Manager()
 	// delete all nodes
 	for (auto i : nodes)
 		delete i.second;
-	glp_delete_prob(lp); // delete glp probe
+	// glp_delete_prob(lp); // delete glp probe
 }
 
 int Manager::parseInput(char *_mode, char *filename, char *and_limit, char *or_limit, char *not_limit)
@@ -75,7 +77,7 @@ void Manager::getInputs()
 		newInput->predecessor.push_back(beginNode);
 		beginNode->successor.push_back(newInput);
 		nodes[word] = newInput;
-		newInput->asap = 0;	 // set the asap (not important)
+		newInput->asap = 0;
 		newInput->ready = 1; // set ready number is 1
 	}
 }
@@ -129,7 +131,7 @@ void Manager::getNames()
 	if (literalCount == 2)
 	{
 		currentNode->type = NodeType::NOT;
-		// nots.push_back(currentNode);
+		logicGates[NOT].push_back(currentNode);
 		gate_count_limit[NOT]++;
 		fgets(buffer, 1000, file); // eat the redundant line
 	}
@@ -155,13 +157,13 @@ void Manager::getNames()
 		if (isOR)
 		{
 			currentNode->type = NodeType::OR;
-			// ors.push_back(currentNode);
+			logicGates[OR].push_back(currentNode);
 			gate_count_limit[OR]++;
 		}
 		else
 		{
 			currentNode->type = NodeType::AND;
-			// ands.push_back(currentNode);
+			logicGates[AND].push_back(currentNode);
 			gate_count_limit[AND]++;
 		}
 	}
@@ -181,8 +183,42 @@ void Manager::toNextLine(char *&word)
 	word = strtok(buffer, " \n");
 }
 
+void Manager::calculate_asap(Node *node)
+{
+	for (auto child_node : node->successor)
+	{
+		if (child_node->asap < node->asap + 1)
+		{
+			child_node->asap = node->asap + 1;
+			if (child_node->type == NodeType::END && latency < child_node->asap)
+				latency = child_node->asap;
+			calculate_asap(child_node);
+		}
+	}
+}
+
+void Manager::calculate_alap(Node *node)
+{
+	for (auto parent_node : node->predecessor)
+	{
+		if (parent_node->alap > node->alap - 1)
+		{
+			parent_node->alap = node->alap - 1;
+			calculate_alap(parent_node);
+		}
+	}
+}
+
 int Manager::heuristicSolve()
 {
+	for (auto node : beginNode->successor)
+		calculate_asap(node);
+
+	endNode->alap = latency;
+	latency--;
+
+	calculate_alap(endNode);
+
 	int code = schedule();
 	if (code == -1)
 		return -1;
@@ -191,58 +227,76 @@ int Manager::heuristicSolve()
 
 int Manager::schedule()
 {
-	unordered_set<Node *> nextToDo;
-
-	// choose gates after inputs
-	for (auto node : beginNode->successor)
-		for (auto child_node : node->successor)
-		{
-			child_node->ready++;
-			child_node->asap = 1;
-			nextToDo.insert(child_node);
-		}
-
-	int time = 1;
-	int gate_count[3] = {0};
-
-	while (!(nextToDo.size() == 1 && (*nextToDo.begin())->type == NodeType::END))
-	{
-		if (time > gate_count_limit[AND] + gate_count_limit[OR] + gate_count_limit[NOT])
+	for (int type = AND; type <= END; type++)
+		if (gate_limit[type] == 0 && gate_count_limit[type] > 0)
 			return -1;
-		unordered_set<Node *> toDo(nextToDo);
-		unordered_set<Node *> toSetReady;
-		vector<Node *> gate_result_now[3];
-		nextToDo.clear();
-		for (auto node : toDo)
-		{
-			if (node->ready == node->predecessor.size() && gate_count[node->type] < gate_limit[node->type])
-			{
-				gate_result_now[node->type].push_back(node);
-				gate_count[node->type]++;
-				toSetReady.insert(node);
-			}
-			else
-			{
-				nextToDo.insert(node);
-			}
-		}
+	// sort all type nodes
+	std::sort(logicGates[AND].begin(), logicGates[AND].end(), Node::sortFunc);
+	std::sort(logicGates[OR].begin(), logicGates[OR].end(), Node::sortFunc);
+	std::sort(logicGates[NOT].begin(), logicGates[NOT].end(), Node::sortFunc);
 
-		for (auto node : toSetReady)
+	vector<Node *> toSchedule[] = {logicGates[AND], logicGates[OR], logicGates[NOT]};
+
+	set<Node *> nextToDo[3];
+	// extract input nodes' successor
+	for (const auto &inputNode : beginNode->successor)
+		for (const auto &node : inputNode->successor)
 		{
-			for (auto child : node->successor)
-			{
-				child->ready++;
-				if (child->asap < node->asap + 1)
-					child->asap = node->asap + 1;
-				nextToDo.insert(child);
-			}
+			node->ready++;
+			nextToDo[node->type].insert(node);
 		}
-		gate_result_heuristic[AND].push_back(gate_result_now[AND]);
-		gate_result_heuristic[OR].push_back(gate_result_now[OR]);
-		gate_result_heuristic[NOT].push_back(gate_result_now[NOT]);
-		gate_count[AND] = gate_count[OR] = gate_count[NOT] = 0;
-		time++;
+	int time = 1;
+	// schedule
+	for (; !toSchedule[AND].empty() || !toSchedule[OR].empty() || !toSchedule[NOT].empty(); time++)
+	{
+		set<Node *> toDo[3]{nextToDo[0], nextToDo[1], nextToDo[2]};
+		for (int type = AND; type <= NOT; type++)
+			nextToDo[type].clear();
+
+		for (int type = AND; type <= NOT; type++)
+		{
+			vector<Node *> result_now;
+			if (!toDo[type].empty())
+			{
+				int count = 0;
+				vector<Node *> toSetReady;
+				auto node_it = toSchedule[type].begin();
+				while (node_it != toSchedule[type].end() && time >= (*node_it)->asap && count < gate_limit[type])
+				{
+					if ((*node_it)->ready == (*node_it)->predecessor.size() && toDo[(*node_it)->type].find(*node_it) != toDo[(*node_it)->type].end())
+					{
+						result_now.push_back(*node_it);
+						count++;
+						toDo[type].erase(*node_it);
+						toSetReady.push_back(*node_it);
+						// if ((*node_it)->name == "p")
+						// 	printf("  ");
+						node_it = toSchedule[type].erase(node_it);
+					}
+					else
+					{
+						nextToDo[type].insert(*node_it);
+						node_it++;
+					}
+				}
+				nextToDo[type].insert(toDo[type].begin(), toDo[type].end());
+				for (auto &node : toSetReady)
+				{
+					for (auto &child : node->successor)
+					{
+						if (child->type != NodeType::END)
+						{
+							child->ready++;
+							nextToDo[child->type].insert(child);
+						}
+					}
+				}
+			}
+
+			result_heuristic[type].push_back(result_now);
+		}
 	}
+
 	latency = time - 1;
 	return 0;
 }
@@ -253,35 +307,35 @@ void Manager::printResult()
 	for (int i = 0; i < latency; i++)
 	{
 		printf("%d: {", i + 1);
-		if (!gate_result_heuristic[AND].empty() && !gate_result_heuristic[AND].at(i).empty())
+		if (!result_heuristic[AND].empty() && !result_heuristic[AND].at(i).empty())
 		{
-			printf("%s", gate_result_heuristic[AND].at(i).at(0)->name.c_str());
-			for (int j = 1; j < gate_result_heuristic[AND].at(i).size(); j++)
+			printf("%s", result_heuristic[AND].at(i).at(0)->name.c_str());
+			for (int j = 1; j < result_heuristic[AND].at(i).size(); j++)
 			{
-				printf(" %s", gate_result_heuristic[AND].at(i).at(j)->name.c_str());
+				printf(" %s", result_heuristic[AND].at(i).at(j)->name.c_str());
 			}
 		}
 		printf("} {");
-		if (!gate_result_heuristic[OR].empty() && !gate_result_heuristic[OR].at(i).empty())
+		if (!result_heuristic[OR].empty() && !result_heuristic[OR].at(i).empty())
 		{
-			printf("%s", gate_result_heuristic[OR].at(i).at(0)->name.c_str());
-			for (int j = 1; j < gate_result_heuristic[OR].at(i).size(); j++)
+			printf("%s", result_heuristic[OR].at(i).at(0)->name.c_str());
+			for (int j = 1; j < result_heuristic[OR].at(i).size(); j++)
 			{
-				printf(" %s", gate_result_heuristic[OR].at(i).at(j)->name.c_str());
+				printf(" %s", result_heuristic[OR].at(i).at(j)->name.c_str());
 			}
 		}
 		printf("} {");
-		if (!gate_result_heuristic[NOT].empty() && !gate_result_heuristic[NOT].at(i).empty())
+		if (!result_heuristic[NOT].empty() && !result_heuristic[NOT].at(i).empty())
 		{
-			printf("%s", gate_result_heuristic[NOT].at(i).at(0)->name.c_str());
-			for (int j = 1; j < gate_result_heuristic[NOT].at(i).size(); j++)
+			printf("%s", result_heuristic[NOT].at(i).at(0)->name.c_str());
+			for (int j = 1; j < result_heuristic[NOT].at(i).size(); j++)
 			{
-				printf(" %s", gate_result_heuristic[NOT].at(i).at(j)->name.c_str());
+				printf(" %s", result_heuristic[NOT].at(i).at(j)->name.c_str());
 			}
 		}
 		printf("}\n");
 	}
-	printf("LATENCY: %d\nEND\n", latency);
+	printf("LATENCY: %d\nEND\n\n\n", latency);
 }
 
 void Manager::formSlackTable(vector<array<vector<Node *>, 4>> &slackTable)
@@ -291,7 +345,7 @@ void Manager::formSlackTable(vector<array<vector<Node *>, 4>> &slackTable)
 	{
 		for (int type = AND; type <= NOT; type++)
 		{
-			for (auto node : gate_result_heuristic[type][i])
+			for (auto node : result_heuristic[type][i])
 			{
 				for (int j = i + 1; j >= node->asap; j--)
 				{
@@ -370,7 +424,7 @@ void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 	// x2 + k2 + b2 <= 2
 	for (int i = 1; i <= latency + 1; i++)
 	{
-		for (int type = AND; type <= END; type++)
+		for (int type = AND; type <= NOT; type++)
 		{
 			if (!slackTable[i][type].empty())
 			{
