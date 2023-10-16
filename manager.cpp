@@ -10,9 +10,7 @@ Manager::Manager()
 
 	gateNode.push_back(endNode);
 
-	glp_term_out(GLP_OFF);	  // disable glp self output
 	columnNode.push_back({}); // let index 0 is empty (start from 1)
-	lp = glp_create_prob();
 }
 
 Manager::~Manager()
@@ -20,7 +18,6 @@ Manager::~Manager()
 	// delete all nodes
 	for (auto i : nodes)
 		delete i.second;
-	glp_delete_prob(lp); // delete glp probe
 }
 
 int Manager::parseInput(char *_mode, char *filename, char *and_limit, char *or_limit, char *not_limit)
@@ -360,9 +357,6 @@ void Manager::formSlackTable(vector<array<vector<Node *>, 4>> &slackTable)
 					slackTable[j][type].push_back(node);
 					columnNode.push_back(make_pair(node, j));
 					node->canWorkColNodeIndex[j] = columnNode.size() - 1;
-					glp_add_cols(lp, 1);
-					//glp_set_col_bnds(lp, columnNode.size() - 1, GLP_DB, 0.0, 1.0);
-					glp_set_col_kind(lp, columnNode.size() - 1, GLP_BV);
 				}
 			}
 		}
@@ -372,19 +366,14 @@ void Manager::formSlackTable(vector<array<vector<Node *>, 4>> &slackTable)
 		slackTable[j][END].push_back(endNode);
 		columnNode.push_back(make_pair(endNode, j));
 		endNode->canWorkColNodeIndex[j] = columnNode.size() - 1;
-		glp_add_cols(lp, 1);
-		//glp_set_col_bnds(lp, columnNode.size() - 1, GLP_DB, 0.0, 1.0);
-		glp_set_col_kind(lp, columnNode.size() - 1, GLP_BV);
 	}
 }
 
 void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 {
-	glp_set_obj_dir(lp, GLP_MIN);
-
 	vector<double> ar(1, 0.0);
 	vector<int> ia(1, 0), ja(1, 0);
-
+	vector<pair<int, int>> row_val(1, pair<int, int>()); //== => 0, >= => 1, <= => -1
 	int same = 0, order = 0, level = 0;
 	for (const auto &node : gateNode)
 	{
@@ -392,8 +381,7 @@ void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 		if (!node->canWorkColNodeIndex.empty())
 		{
 			total_row++;
-			glp_add_rows(lp, 1);
-			glp_set_row_bnds(lp, total_row, GLP_FX, 1.0, 1.0);
+			row_val.push_back(make_pair(0, 1));
 
 			for (const auto &canWorkColIndex : node->canWorkColNodeIndex)
 			{
@@ -411,8 +399,7 @@ void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 			if (parentNode->canWorkColNodeIndex.begin()->first <= node->canWorkColNodeIndex.rbegin()->first)
 			{
 				total_row++;
-				glp_add_rows(lp, 1);
-				glp_set_row_bnds(lp, total_row, GLP_LO, 1.0, 0.0);
+				row_val.push_back(make_pair(1, 1));
 
 				for (const auto &parentCanWorkColIndex : parentNode->canWorkColNodeIndex)
 				{
@@ -439,8 +426,8 @@ void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 			if (!slackTable[i][type].empty())
 			{
 				total_row++;
-				glp_add_rows(lp, 1);
-				glp_set_row_bnds(lp, total_row, GLP_UP, 0.0, (double)gate_limit[type]);
+				row_val.push_back(make_pair(-1, gate_limit[type]));
+
 				for (const auto &node : slackTable[i][type])
 				{
 					ia.push_back(total_row);
@@ -451,14 +438,9 @@ void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 		}
 	}
 
-	for (const auto &nodeIndex : endNode->canWorkColNodeIndex)
-	{
-		glp_set_obj_coef(lp, nodeIndex.second, nodeIndex.first);
-	}
+	writeFile(ar, ia, ja, row_val);
 
-	glp_load_matrix(lp, ar.size() - 1, &ia[0], &ja[0], &ar[0]);
-
-	printSlackTable(ar, ia, ja);
+	printf(" ");
 }
 
 void Manager::ilpSolve()
@@ -467,36 +449,28 @@ void Manager::ilpSolve()
 	formSlackTable(slackTable);
 	formulate(slackTable);
 
-	glp_iocp param;
-	glp_init_iocp(&param);
-	param.presolve = GLP_ON;
-	glp_intopt(lp, &param);
-
-	//glp_simplex(lp, NULL);
-	glp_intopt(lp, NULL);
-
-	// for (int i = 1; i <= 16; i++)
-	// {
-	// 	printf("%s%d \t %lf\n", columnNode[i].first->name.c_str(), columnNode[i].second, glp_mip_col_val(lp, i));
-	// }
+	// glp_iocp param;
+	// glp_init_iocp(&param);
+	// param.presolve = GLP_ON;
+	// glp_intopt(lp, &param);
 }
 
 void Manager::printILPResult()
 {
 	vector<array<vector<string>, 3>> result;
-	int total_columns = glp_get_num_cols(lp);
-	for (int i = 1; i <= total_columns; i++)
-	{
-		if (glp_mip_col_val(lp, i) == 1.0)
-		{
-			auto nodeTime = columnNode[i];
-			if (nodeTime.first->type != NodeType::END && result.size() < nodeTime.second + 1)
-				result.resize(nodeTime.second + 1);
+	// int total_columns = glp_get_num_cols(lp);
+	// for (int i = 1; i <= total_columns; i++)
+	// {
+	// 	if (glp_mip_col_val(lp, i) == 1.0)
+	// 	{
+	// 		auto nodeTime = columnNode[i];
+	// 		if (nodeTime.first->type != NodeType::END && result.size() < nodeTime.second + 1)
+	// 			result.resize(nodeTime.second + 1);
 
-			if (nodeTime.first->type != NodeType::END)
-				result[nodeTime.second][nodeTime.first->type].push_back(nodeTime.first->name);
-		}
-	}
+	// 		if (nodeTime.first->type != NodeType::END)
+	// 			result[nodeTime.second][nodeTime.first->type].push_back(nodeTime.first->name);
+	// 	}
+	// }
 
 	latency = result.size() - 1;
 	printf("ILP-based Scheduling Result\n");
@@ -534,29 +508,73 @@ void Manager::printILPResult()
 	printf("LATENCY: %d\nEND\n", latency);
 }
 
-void Manager::printSlackTable(const vector<double> &ar, const vector<int> &ia, const vector<int> &ja)
+int Manager::writeFile(const vector<double> &ar, const vector<int> &ia, const vector<int> &ja, const vector<pair<int, int>> &row_val)
 {
+	file = fopen("converted.lp", "w");
+	if (file == NULL)
+	{
+		printf("file could not be written\n");
+		return -1;
+	}
+
+	fprintf(file, "Min\n");
+	for (const auto &nodeIndex : endNode->canWorkColNodeIndex)
+	{
+		if(nodeIndex != *endNode->canWorkColNodeIndex.begin())
+			fprintf(file, " + ");
+		fprintf(file, "end_%d", nodeIndex.first);
+		// glp_set_obj_coef(lp, nodeIndex.second, nodeIndex.first);
+	}
+
 	// for (int i = 1; i < ia.size(); i++)
 	//	printf("ia[%d] ja[%d] ar[%d] =	%d	%s%d	%lf\n", i, i, i, ia[i], columnNode[ja[i]].first->name.c_str(), columnNode[ja[i]].second, ar[i]);
 
-	vector<map<string, int>> result;
+	vector<map<string, int, std::greater<string>>> result;
 	result.resize(*ia.rbegin() + 1);
 
 	for (int i = 1; i < ia.size(); i++)
 	{
-		result[ia[i]].insert(make_pair(columnNode[ja[i]].first->name + " " + std::to_string(columnNode[ja[i]].second), ar[i]));
+		result[ia[i]].insert(make_pair(columnNode[ja[i]].first->name + "_" + std::to_string(columnNode[ja[i]].second), ar[i]));
 	}
 
-	for (const auto &element : result)
+	fprintf(file, "\nSubject To\n");
+	for (int i = 1; i < result.size(); i++)
 	{
+		auto &element = *(result.begin() + i);
 		for (const auto &item : element)
 		{
 			if (item.first != element.begin()->first)
 			{
-				printf(" + ");
+				if (item.second < 0)
+					fprintf(file, " - ");
+				else
+					fprintf(file, " + ");
 			}
-			printf("%d*%s", item.second, item.first.c_str());
+			fprintf(file, "%d %s", item.second < 0 ? item.second * -1 : item.second, item.first.c_str());
 		}
-		printf("\n");
+		switch (row_val[i].first)
+		{
+		case 0:
+			fprintf(file, " = ");
+			break;
+		case 1:
+			fprintf(file, " >= ");
+			break;
+		case -1:
+			fprintf(file, " <= ");
+		}
+		fprintf(file, "%d", row_val[i].second);
+		fprintf(file, "\n");
 	}
+
+	fprintf(file, "Binary\n");
+	for(auto node_it = columnNode.begin() + 1; node_it != columnNode.end(); node_it++)
+	{
+		fprintf(file, "%s_%d\n", node_it->first->name.c_str(), node_it->second);
+	}
+
+	fprintf(file, "End\n");
+
+	fclose(file);
+	return 0;
 }

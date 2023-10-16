@@ -2,7 +2,6 @@
 #include <algorithm>
 #include "lib.h"
 #include "node.h"
-#include "glpk.h"
 #include <map>
 
 class Manager
@@ -17,7 +16,6 @@ class Manager
 	vector<Node *> gateNode;					// all gate node (and, or, not, end)
 	vector<vector<Node *>> result_heuristic[3]; // heuristic result of gates
 	vector<Node *> logicGates[3];
-	glp_prob *lp;						  // glp probe
 	int total_row = 0;					  // total glp rows
 	vector<pair<Node *, int>> columnNode; // glp column node & can-work time
 
@@ -31,7 +29,7 @@ class Manager
 	void formSlackTable(vector<array<vector<Node *>, 4>> &slackTable); // form slack table
 	void formulate(vector<array<vector<Node *>, 4>> &slackTable);	   // formulate functions
 
-	void printSlackTable(const vector<double> &ar, const vector<int> &ia, const vector<int> &ja);
+	int writeFile(const vector<double> &ar, const vector<int> &ia, const vector<int> &ja, const vector<pair<int, int>> &row_val);
 
 public:
 	Manager();	// initialize

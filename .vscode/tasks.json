@@ -12,8 +12,7 @@
                 "node.cpp",
                 "libglpk.a",
                 "-o",
-                "${fileDirname}/mlrcs",
-                "-O3"
+                "${fileDirname}/mlrcs"
             ],
             "options": {
                 "cwd": "${fileDirname}"

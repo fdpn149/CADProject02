@@ -22,7 +22,7 @@ int main(int argc, char *argv[])
 	else
 	{
 		manager.ilpSolve();
-		manager.printILPResult();
+		//manager.printILPResult();
 	}
 	return 0;
 }
