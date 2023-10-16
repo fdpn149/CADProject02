@@ -369,26 +369,44 @@ void Manager::formSlackTable(vector<array<vector<Node *>, 4>> &slackTable)
 	}
 }
 
-void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
+int Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 {
 	vector<double> ar(1, 0.0);
 	vector<int> ia(1, 0), ja(1, 0);
 	vector<pair<int, int>> row_val(1, pair<int, int>()); //== => 0, >= => 1, <= => -1
 	int same = 0, order = 0, level = 0;
+
+	file = fopen("converted.lp", "w");
+	if (file == NULL)
+	{
+		printf("file could not be written\n");
+		return -1;
+	}
+
+	fprintf(file, "Min\n");
+	for (const auto &nodeIndex : endNode->canWorkColNodeIndex)
+	{
+		if (nodeIndex != *endNode->canWorkColNodeIndex.begin())
+			fprintf(file, " + ");
+		fprintf(file, "end_%d", nodeIndex.first);
+		// glp_set_obj_coef(lp, nodeIndex.second, nodeIndex.first);
+	}
+
+	fprintf(file, "\nSubject To\n");
 	for (const auto &node : gateNode)
 	{
 		// x2 + x1 = 1
 		if (!node->canWorkColNodeIndex.empty())
 		{
-			total_row++;
-			row_val.push_back(make_pair(0, 1));
-
 			for (const auto &canWorkColIndex : node->canWorkColNodeIndex)
 			{
-				ia.push_back(total_row);
-				ja.push_back(canWorkColIndex.second);
-				ar.push_back(1.0);
+				if (canWorkColIndex != *node->canWorkColNodeIndex.begin())
+					fprintf(file, " + ");
+				fprintf(file, "%s_%d", node->name.c_str(), canWorkColIndex.first);
 			}
+			// total_row++;
+			// row_val.push_back(make_pair(0, 1));
+			fprintf(file, " = 1\n");
 		}
 
 		// 3x3 + 2x2 - 2y2 - 1y1 >= 1
@@ -398,21 +416,26 @@ void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 			// {
 			if (parentNode->canWorkColNodeIndex.begin()->first <= node->canWorkColNodeIndex.rbegin()->first)
 			{
-				total_row++;
-				row_val.push_back(make_pair(1, 1));
-
 				for (const auto &parentCanWorkColIndex : parentNode->canWorkColNodeIndex)
 				{
-					ia.push_back(total_row);
-					ja.push_back(parentCanWorkColIndex.second);
-					ar.push_back(columnNode[parentCanWorkColIndex.second].second);
+					if (parentCanWorkColIndex != *parentNode->canWorkColNodeIndex.begin())
+						fprintf(file, " + ");
+					fprintf(file, "%d %s_%d", columnNode[parentCanWorkColIndex.second].second, parentNode->name.c_str(), parentCanWorkColIndex.first);
+					// ia.push_back(total_row);
+					// ja.push_back(parentCanWorkColIndex.second);
+					// ar.push_back(columnNode[parentCanWorkColIndex.second].second);
 				}
 				for (const auto &canWorkColIndex : node->canWorkColNodeIndex)
 				{
-					ia.push_back(total_row);
-					ja.push_back(canWorkColIndex.second);
-					ar.push_back(-columnNode[canWorkColIndex.second].second);
+					// ia.push_back(total_row);
+					// ja.push_back(canWorkColIndex.second);
+					// ar.push_back(-columnNode[canWorkColIndex.second].second);
+
+					fprintf(file, " - %d %s_%d", columnNode[canWorkColIndex.second].second, node->name.c_str(), canWorkColIndex.first);
 				}
+				// total_row++;
+				// row_val.push_back(make_pair(1, 1));
+				fprintf(file, " >= 1\n");
 			}
 			// }
 		}
@@ -425,22 +448,34 @@ void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 		{
 			if (!slackTable[i][type].empty())
 			{
-				total_row++;
-				row_val.push_back(make_pair(-1, gate_limit[type]));
-
 				for (const auto &node : slackTable[i][type])
 				{
-					ia.push_back(total_row);
-					ja.push_back(node->canWorkColNodeIndex[i]);
-					ar.push_back(1.0);
+					if (node != *slackTable[i][type].begin())
+						fprintf(file, " + ");
+					fprintf(file, "%s_%d", node->name.c_str(), i);
+					// ia.push_back(total_row);
+					// ja.push_back(node->canWorkColNodeIndex[i]);
+					// ar.push_back(1.0);
 				}
+				// total_row++;
+				// row_val.push_back(make_pair(-1, gate_limit[type]));
+				fprintf(file, " <= %d\n", gate_limit[type]);
 			}
 		}
 	}
+	fprintf(file, "Binary\n");
+	for (auto node_it = columnNode.begin() + 1; node_it != columnNode.end(); node_it++)
+	{
+		fprintf(file, "%s_%d\n", node_it->first->name.c_str(), node_it->second);
+	}
 
-	writeFile(ar, ia, ja, row_val);
+	fprintf(file, "End\n");
 
-	printf(" ");
+	fclose(file);
+	// writeFile(ar, ia, ja, row_val);
+
+	// printf(" ");
+	return 0;
 }
 
 void Manager::ilpSolve()
@@ -510,21 +545,6 @@ void Manager::printILPResult()
 
 int Manager::writeFile(const vector<double> &ar, const vector<int> &ia, const vector<int> &ja, const vector<pair<int, int>> &row_val)
 {
-	file = fopen("converted.lp", "w");
-	if (file == NULL)
-	{
-		printf("file could not be written\n");
-		return -1;
-	}
-
-	fprintf(file, "Min\n");
-	for (const auto &nodeIndex : endNode->canWorkColNodeIndex)
-	{
-		if(nodeIndex != *endNode->canWorkColNodeIndex.begin())
-			fprintf(file, " + ");
-		fprintf(file, "end_%d", nodeIndex.first);
-		// glp_set_obj_coef(lp, nodeIndex.second, nodeIndex.first);
-	}
 
 	// for (int i = 1; i < ia.size(); i++)
 	//	printf("ia[%d] ja[%d] ar[%d] =	%d	%s%d	%lf\n", i, i, i, ia[i], columnNode[ja[i]].first->name.c_str(), columnNode[ja[i]].second, ar[i]);
@@ -568,7 +588,7 @@ int Manager::writeFile(const vector<double> &ar, const vector<int> &ia, const ve
 	}
 
 	fprintf(file, "Binary\n");
-	for(auto node_it = columnNode.begin() + 1; node_it != columnNode.end(); node_it++)
+	for (auto node_it = columnNode.begin() + 1; node_it != columnNode.end(); node_it++)
 	{
 		fprintf(file, "%s_%d\n", node_it->first->name.c_str(), node_it->second);
 	}

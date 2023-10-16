@@ -27,7 +27,7 @@ class Manager
 	void calculate_asap(Node *node);
 	void calculate_alap(Node *node);
 	void formSlackTable(vector<array<vector<Node *>, 4>> &slackTable); // form slack table
-	void formulate(vector<array<vector<Node *>, 4>> &slackTable);	   // formulate functions
+	int formulate(vector<array<vector<Node *>, 4>> &slackTable);	   // formulate functions
 
 	int writeFile(const vector<double> &ar, const vector<int> &ia, const vector<int> &ja, const vector<pair<int, int>> &row_val);
 

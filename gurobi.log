@@ -148,3 +148,398 @@ Best objective 1.000000000000e+00, best bound 1.000000000000e+00, gap 0.0000%
 
 Wrote result file 'out.sol'
 
+
+Gurobi 10.0.3 (linux64, gurobi_cl) logging started Mon Oct 16 23:51:48 2023
+
+Set parameter Username
+Set parameter LogFile to value "gurobi.log"
+Academic license - for non-commercial use only - expires 2024-10-15
+Using license file /home/b11015061/gurobi.lic
+
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+Copyright (c) 2023, Gurobi Optimization, LLC
+
+Read LP format model from file converted.lp
+Reading time = 0.02 seconds
+: 161 rows, 1045 columns, 2874 nonzeros
+
+CPU model: Intel(R) Core(TM) i5-10300H CPU @ 2.50GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 4 physical cores, 8 logical processors, using up to 8 threads
+
+Optimize a model with 161 rows, 1045 columns and 2874 nonzeros
+Model fingerprint: 0x4d759ea6
+Variable types: 516 continuous, 529 integer (529 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 1e+00]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+Presolve removed 46 rows and 1003 columns
+Presolve time: 0.00s
+
+Explored 0 nodes (0 simplex iterations) in 0.01 seconds (0.00 work units)
+Thread count was 1 (of 8 available processors)
+
+Solution count 0
+
+Model is infeasible
+Best objective -, best bound -, gap -
+
+Unable to retrieve attribute 'X'
+
+
+Gurobi 10.0.3 (linux64, gurobi_cl) logging started Mon Oct 16 23:57:58 2023
+
+Set parameter Username
+Set parameter LogFile to value "gurobi.log"
+Academic license - for non-commercial use only - expires 2024-10-15
+Using license file /home/b11015061/gurobi.lic
+
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+Copyright (c) 2023, Gurobi Optimization, LLC
+
+Read LP format model from file converted.lp
+Reading time = 0.02 seconds
+: 161 rows, 529 columns, 2874 nonzeros
+
+CPU model: Intel(R) Core(TM) i5-10300H CPU @ 2.50GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 4 physical cores, 8 logical processors, using up to 8 threads
+
+Optimize a model with 161 rows, 529 columns and 2874 nonzeros
+Model fingerprint: 0xb4c17bf0
+Variable types: 0 continuous, 529 integer (529 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 2e+01]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+Presolve removed 8 rows and 50 columns
+Presolve time: 0.03s
+Presolved: 153 rows, 479 columns, 2250 nonzeros
+Variable types: 0 continuous, 479 integer (479 binary)
+
+Root relaxation: objective 1.000000e+00, 185 iterations, 0.01 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    1.00000    0   16          -    1.00000      -     -    0s
+     0     0    1.00000    0   45          -    1.00000      -     -    0s
+     0     0    1.00000    0   40          -    1.00000      -     -    0s
+     0     0    1.00000    0   29          -    1.00000      -     -    0s
+     0     0    1.00000    0   12          -    1.00000      -     -    0s
+     0     0    1.00000    0   19          -    1.00000      -     -    0s
+     0     0    1.00000    0    2          -    1.00000      -     -    0s
+H    0     0                       1.0000000    1.00000  0.00%     -    0s
+     0     0    1.00000    0    2    1.00000    1.00000  0.00%     -    0s
+
+Cutting planes:
+  Gomory: 1
+  Cover: 12
+  Clique: 12
+  MIR: 9
+  StrongCG: 5
+  GUB cover: 27
+  Zero half: 3
+  RLT: 10
+
+Explored 1 nodes (1821 simplex iterations) in 0.20 seconds (0.05 work units)
+Thread count was 8 (of 8 available processors)
+
+Solution count 1: 1 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.000000000000e+00, best bound 1.000000000000e+00, gap 0.0000%
+
+Wrote result file 'out2.sol'
+
+
+Gurobi 10.0.3 (linux64, gurobi_cl) logging started Tue Oct 17 00:00:14 2023
+
+Set parameter Username
+Set parameter LogFile to value "gurobi.log"
+Academic license - for non-commercial use only - expires 2024-10-15
+Using license file /home/b11015061/gurobi.lic
+
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+Copyright (c) 2023, Gurobi Optimization, LLC
+
+Read LP format model from file converted2.lp
+Reading time = 0.03 seconds
+: 161 rows, 529 columns, 2874 nonzeros
+
+CPU model: Intel(R) Core(TM) i5-10300H CPU @ 2.50GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 4 physical cores, 8 logical processors, using up to 8 threads
+
+Optimize a model with 161 rows, 529 columns and 2874 nonzeros
+Model fingerprint: 0xb4c17bf0
+Variable types: 0 continuous, 529 integer (529 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 2e+01]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+Presolve removed 8 rows and 50 columns
+Presolve time: 0.02s
+Presolved: 153 rows, 479 columns, 2250 nonzeros
+Variable types: 0 continuous, 479 integer (479 binary)
+
+Root relaxation: objective 1.000000e+00, 185 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    1.00000    0   16          -    1.00000      -     -    0s
+     0     0    1.00000    0   45          -    1.00000      -     -    0s
+     0     0    1.00000    0   40          -    1.00000      -     -    0s
+     0     0    1.00000    0   29          -    1.00000      -     -    0s
+     0     0    1.00000    0   12          -    1.00000      -     -    0s
+     0     0    1.00000    0   19          -    1.00000      -     -    0s
+     0     0    1.00000    0    2          -    1.00000      -     -    0s
+H    0     0                       1.0000000    1.00000  0.00%     -    0s
+     0     0    1.00000    0    2    1.00000    1.00000  0.00%     -    0s
+
+Cutting planes:
+  Gomory: 1
+  Cover: 12
+  Clique: 12
+  MIR: 9
+  StrongCG: 5
+  GUB cover: 27
+  Zero half: 3
+  RLT: 10
+
+Explored 1 nodes (1821 simplex iterations) in 0.29 seconds (0.05 work units)
+Thread count was 8 (of 8 available processors)
+
+Solution count 1: 1 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.000000000000e+00, best bound 1.000000000000e+00, gap 0.0000%
+
+Wrote result file 'out2.sol'
+
+
+Gurobi 10.0.3 (linux64, gurobi_cl) logging started Tue Oct 17 00:13:52 2023
+
+Set parameter Username
+Set parameter LogFile to value "gurobi.log"
+Academic license - for non-commercial use only - expires 2024-10-15
+Using license file /home/b11015061/gurobi.lic
+
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+Copyright (c) 2023, Gurobi Optimization, LLC
+
+Error reading LP format file converted.lp at line 5
+Malformed term in expression
+Neighboring tokens: " + 6 end_67 end_78 end_89 end_910 end_1011 end_1112 "
+
+
+Error 10012: Unable to read file
+
+
+Gurobi 10.0.3 (linux64, gurobi_cl) logging started Tue Oct 17 00:13:55 2023
+
+Set parameter Username
+Set parameter LogFile to value "gurobi.log"
+Academic license - for non-commercial use only - expires 2024-10-15
+Using license file /home/b11015061/gurobi.lic
+
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+Copyright (c) 2023, Gurobi Optimization, LLC
+
+Read LP format model from file converted2.lp
+Reading time = 0.02 seconds
+: 161 rows, 529 columns, 2874 nonzeros
+
+CPU model: Intel(R) Core(TM) i5-10300H CPU @ 2.50GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 4 physical cores, 8 logical processors, using up to 8 threads
+
+Optimize a model with 161 rows, 529 columns and 2874 nonzeros
+Model fingerprint: 0xb4c17bf0
+Variable types: 0 continuous, 529 integer (529 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 2e+01]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+Presolve removed 8 rows and 50 columns
+Presolve time: 0.02s
+Presolved: 153 rows, 479 columns, 2250 nonzeros
+Variable types: 0 continuous, 479 integer (479 binary)
+
+Root relaxation: objective 1.000000e+00, 185 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    1.00000    0   16          -    1.00000      -     -    0s
+     0     0    1.00000    0   45          -    1.00000      -     -    0s
+     0     0    1.00000    0   40          -    1.00000      -     -    0s
+     0     0    1.00000    0   29          -    1.00000      -     -    0s
+     0     0    1.00000    0   12          -    1.00000      -     -    0s
+     0     0    1.00000    0   19          -    1.00000      -     -    0s
+     0     0    1.00000    0    2          -    1.00000      -     -    0s
+H    0     0                       1.0000000    1.00000  0.00%     -    0s
+     0     0    1.00000    0    2    1.00000    1.00000  0.00%     -    0s
+
+Cutting planes:
+  Gomory: 1
+  Cover: 12
+  Clique: 12
+  MIR: 9
+  StrongCG: 5
+  GUB cover: 27
+  Zero half: 3
+  RLT: 10
+
+Explored 1 nodes (1821 simplex iterations) in 0.30 seconds (0.05 work units)
+Thread count was 8 (of 8 available processors)
+
+Solution count 1: 1 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.000000000000e+00, best bound 1.000000000000e+00, gap 0.0000%
+
+Wrote result file 'out2.sol'
+
+
+Gurobi 10.0.3 (linux64, gurobi_cl) logging started Tue Oct 17 00:14:33 2023
+
+Set parameter Username
+Set parameter LogFile to value "gurobi.log"
+Academic license - for non-commercial use only - expires 2024-10-15
+Using license file /home/b11015061/gurobi.lic
+
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+Copyright (c) 2023, Gurobi Optimization, LLC
+
+Error reading LP format file converted.lp at line 5
+Malformed term in expression
+Neighboring tokens: " + 6 end_67 end_78 end_89 end_910 end_1011 end_1112 "
+
+
+Error 10012: Unable to read file
+
+
+Gurobi 10.0.3 (linux64, gurobi_cl) logging started Tue Oct 17 00:15:35 2023
+
+Set parameter Username
+Set parameter LogFile to value "gurobi.log"
+Academic license - for non-commercial use only - expires 2024-10-15
+Using license file /home/b11015061/gurobi.lic
+
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+Copyright (c) 2023, Gurobi Optimization, LLC
+
+Read LP format model from file converted.lp
+Reading time = 0.02 seconds
+: 161 rows, 529 columns, 2874 nonzeros
+
+CPU model: Intel(R) Core(TM) i5-10300H CPU @ 2.50GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 4 physical cores, 8 logical processors, using up to 8 threads
+
+Optimize a model with 161 rows, 529 columns and 2874 nonzeros
+Model fingerprint: 0xb1670470
+Variable types: 0 continuous, 529 integer (529 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 2e+01]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+Presolve removed 8 rows and 64 columns
+Presolve time: 0.02s
+Presolved: 153 rows, 465 columns, 2174 nonzeros
+Variable types: 0 continuous, 465 integer (465 binary)
+
+Root relaxation: objective 1.000000e+00, 198 iterations, 0.00 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    1.00000    0   29          -    1.00000      -     -    0s
+     0     0    1.00000    0   54          -    1.00000      -     -    0s
+H    0     0                       1.0000000    1.00000  0.00%     -    0s
+     0     0    1.00000    0    9    1.00000    1.00000  0.00%     -    0s
+
+Cutting planes:
+  Gomory: 23
+  Cover: 14
+  Clique: 30
+  MIR: 21
+  StrongCG: 10
+  GUB cover: 29
+  Zero half: 12
+  RLT: 11
+
+Explored 1 nodes (1318 simplex iterations) in 0.19 seconds (0.05 work units)
+Thread count was 8 (of 8 available processors)
+
+Solution count 1: 1 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.000000000000e+00, best bound 1.000000000000e+00, gap 0.0000%
+
+Wrote result file 'out.sol'
+
+
+Gurobi 10.0.3 (linux64, gurobi_cl) logging started Tue Oct 17 01:20:02 2023
+
+Set parameter Username
+Set parameter LogFile to value "gurobi.log"
+Academic license - for non-commercial use only - expires 2024-10-15
+Using license file /home/b11015061/gurobi.lic
+
+Gurobi Optimizer version 10.0.3 build v10.0.3rc0 (linux64)
+Copyright (c) 2023, Gurobi Optimization, LLC
+
+Read LP format model from file converted.lp
+Reading time = 0.01 seconds
+: 161 rows, 529 columns, 2874 nonzeros
+
+CPU model: Intel(R) Core(TM) i5-10300H CPU @ 2.50GHz, instruction set [SSE2|AVX|AVX2]
+Thread count: 4 physical cores, 8 logical processors, using up to 8 threads
+
+Optimize a model with 161 rows, 529 columns and 2874 nonzeros
+Model fingerprint: 0xb1670470
+Variable types: 0 continuous, 529 integer (529 binary)
+Coefficient statistics:
+  Matrix range     [1e+00, 2e+01]
+  Objective range  [1e+00, 1e+00]
+  Bounds range     [1e+00, 1e+00]
+  RHS range        [1e+00, 1e+00]
+Presolve removed 8 rows and 64 columns
+Presolve time: 0.03s
+Presolved: 153 rows, 465 columns, 2174 nonzeros
+Variable types: 0 continuous, 465 integer (465 binary)
+
+Root relaxation: objective 1.000000e+00, 198 iterations, 0.01 seconds (0.00 work units)
+
+    Nodes    |    Current Node    |     Objective Bounds      |     Work
+ Expl Unexpl |  Obj  Depth IntInf | Incumbent    BestBd   Gap | It/Node Time
+
+     0     0    1.00000    0   29          -    1.00000      -     -    0s
+     0     0    1.00000    0   54          -    1.00000      -     -    0s
+H    0     0                       1.0000000    1.00000  0.00%     -    0s
+     0     0    1.00000    0    9    1.00000    1.00000  0.00%     -    0s
+
+Cutting planes:
+  Gomory: 23
+  Cover: 14
+  Clique: 30
+  MIR: 21
+  StrongCG: 10
+  GUB cover: 29
+  Zero half: 12
+  RLT: 11
+
+Explored 1 nodes (1318 simplex iterations) in 0.14 seconds (0.05 work units)
+Thread count was 8 (of 8 available processors)
+
+Solution count 1: 1 
+
+Optimal solution found (tolerance 1.00e-04)
+Best objective 1.000000000000e+00, best bound 1.000000000000e+00, gap 0.0000%
+
+Wrote result file 'out.sol'
+
