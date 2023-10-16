@@ -458,7 +458,7 @@ void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 
 	glp_load_matrix(lp, ar.size() - 1, &ia[0], &ja[0], &ar[0]);
 
-	// printSlackTable(ar, ia, ja);
+	printSlackTable(ar, ia, ja);
 }
 
 void Manager::ilpSolve()
@@ -544,7 +544,7 @@ void Manager::printSlackTable(const vector<double> &ar, const vector<int> &ia, c
 
 	for (int i = 1; i < ia.size(); i++)
 	{
-		result[ia[i]].insert(make_pair(columnNode[ja[i]].first->name + std::to_string(columnNode[ja[i]].second), ar[i]));
+		result[ia[i]].insert(make_pair(columnNode[ja[i]].first->name + " " + std::to_string(columnNode[ja[i]].second), ar[i]));
 	}
 
 	for (const auto &element : result)
