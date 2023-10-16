@@ -12,6 +12,7 @@ Manager::Manager()
 
 	glp_term_out(GLP_OFF);	  // disable glp self output
 	columnNode.push_back({}); // let index 0 is empty (start from 1)
+	lp = glp_create_prob();
 }
 
 Manager::~Manager()
@@ -19,7 +20,7 @@ Manager::~Manager()
 	// delete all nodes
 	for (auto i : nodes)
 		delete i.second;
-	// glp_delete_prob(lp); // delete glp probe
+	glp_delete_prob(lp); // delete glp probe
 }
 
 int Manager::parseInput(char *_mode, char *filename, char *and_limit, char *or_limit, char *not_limit)
@@ -238,6 +239,7 @@ int Manager::schedule()
 	vector<Node *> toSchedule[] = {logicGates[AND], logicGates[OR], logicGates[NOT]};
 
 	set<Node *> nextToDo[3];
+
 	// extract input nodes' successor
 	for (const auto &inputNode : beginNode->successor)
 		for (const auto &node : inputNode->successor)
@@ -247,9 +249,10 @@ int Manager::schedule()
 		}
 	int time = 1;
 	// schedule
-	for (; !toSchedule[AND].empty() || !toSchedule[OR].empty() || !toSchedule[NOT].empty(); time++)
+	for (; endNode->ready < endNode->predecessor.size(); time++)
 	{
 		set<Node *> toDo[3]{nextToDo[0], nextToDo[1], nextToDo[2]};
+		vector<Node *> toSetReady;
 		for (int type = AND; type <= NOT; type++)
 			nextToDo[type].clear();
 
@@ -259,11 +262,10 @@ int Manager::schedule()
 			if (!toDo[type].empty())
 			{
 				int count = 0;
-				vector<Node *> toSetReady;
 				auto node_it = toSchedule[type].begin();
 				while (node_it != toSchedule[type].end() && time >= (*node_it)->asap && count < gate_limit[type])
 				{
-					if ((*node_it)->ready == (*node_it)->predecessor.size() && toDo[(*node_it)->type].find(*node_it) != toDo[(*node_it)->type].end())
+					if ((*node_it)->ready == (*node_it)->predecessor.size() && toDo[type].find(*node_it) != toDo[type].end())
 					{
 						result_now.push_back(*node_it);
 						count++;
@@ -280,24 +282,23 @@ int Manager::schedule()
 					}
 				}
 				nextToDo[type].insert(toDo[type].begin(), toDo[type].end());
-				for (auto &node : toSetReady)
-				{
-					for (auto &child : node->successor)
-					{
-						if (child->type != NodeType::END)
-						{
-							child->ready++;
-							nextToDo[child->type].insert(child);
-						}
-					}
-				}
 			}
 
 			result_heuristic[type].push_back(result_now);
 		}
+
+		for (auto &node : toSetReady)
+		{
+			for (auto &child : node->successor)
+			{
+				child->ready++;
+				nextToDo[child->type].insert(child);
+			}
+		}
 	}
 
 	latency = time - 1;
+	alap_fix = latency - endNode->alap + 1;
 	return 0;
 }
 
@@ -347,12 +348,13 @@ void Manager::formSlackTable(vector<array<vector<Node *>, 4>> &slackTable)
 		{
 			for (auto node : result_heuristic[type][i])
 			{
-				for (int j = i + 1; j >= node->asap; j--)
+				for (int j = node->alap + alap_fix; j >= node->asap; j--)
 				{
 					slackTable[j][type].push_back(node);
 					columnNode.push_back(make_pair(node, j));
 					node->canWorkColNodeIndex[j] = columnNode.size() - 1;
 					glp_add_cols(lp, 1);
+					glp_set_col_bnds(lp, columnNode.size() - 1, GLP_DB, 0.0, 1.0);
 					glp_set_col_kind(lp, columnNode.size() - 1, GLP_BV);
 				}
 			}
@@ -364,6 +366,7 @@ void Manager::formSlackTable(vector<array<vector<Node *>, 4>> &slackTable)
 		columnNode.push_back(make_pair(endNode, j));
 		endNode->canWorkColNodeIndex[j] = columnNode.size() - 1;
 		glp_add_cols(lp, 1);
+		glp_set_col_bnds(lp, columnNode.size() - 1, GLP_DB, 0.0, 1.0);
 		glp_set_col_kind(lp, columnNode.size() - 1, GLP_BV);
 	}
 }
@@ -396,28 +399,28 @@ void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 		// 3x3 + 2x2 - 2y2 - 1y1 >= 1
 		for (auto parentNode : node->successor)
 		{
-			if (!parentNode->canWorkColNodeIndex.empty() && !node->canWorkColNodeIndex.empty())
+			// if (!parentNode->canWorkColNodeIndex.empty() && !node->canWorkColNodeIndex.empty())
+			// {
+			if (parentNode->canWorkColNodeIndex.begin()->first <= node->canWorkColNodeIndex.rbegin()->first)
 			{
-				if (parentNode->canWorkColNodeIndex.begin()->first <= node->canWorkColNodeIndex.rbegin()->first)
-				{
-					total_row++;
-					glp_add_rows(lp, 1);
-					glp_set_row_bnds(lp, total_row, GLP_LO, 1.0, 0.0);
+				total_row++;
+				glp_add_rows(lp, 1);
+				glp_set_row_bnds(lp, total_row, GLP_LO, 1.0, 0.0);
 
-					for (const auto &parentCanWorkColIndex : parentNode->canWorkColNodeIndex)
-					{
-						ia.push_back(total_row);
-						ja.push_back(parentCanWorkColIndex.second);
-						ar.push_back(columnNode[parentCanWorkColIndex.second].second);
-					}
-					for (const auto &canWorkColIndex : node->canWorkColNodeIndex)
-					{
-						ia.push_back(total_row);
-						ja.push_back(canWorkColIndex.second);
-						ar.push_back(-columnNode[canWorkColIndex.second].second);
-					}
+				for (const auto &parentCanWorkColIndex : parentNode->canWorkColNodeIndex)
+				{
+					ia.push_back(total_row);
+					ja.push_back(parentCanWorkColIndex.second);
+					ar.push_back(columnNode[parentCanWorkColIndex.second].second);
+				}
+				for (const auto &canWorkColIndex : node->canWorkColNodeIndex)
+				{
+					ia.push_back(total_row);
+					ja.push_back(canWorkColIndex.second);
+					ar.push_back(-columnNode[canWorkColIndex.second].second);
 				}
 			}
+			// }
 		}
 	}
 
@@ -441,25 +444,28 @@ void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 		}
 	}
 
-	// for (int i = 1; i < ia.size(); i++)
-	// 	printf("ia[%d] ja[%d] ar[%d] =	%d	%s%d	%lf\n", i, i, i, ia[i], columnNode[ja[i]].first->name.c_str(), columnNode[ja[i]].second, ar[i]);
-
 	for (const auto &nodeIndex : endNode->canWorkColNodeIndex)
 	{
 		glp_set_obj_coef(lp, nodeIndex.second, nodeIndex.first);
 	}
 
 	glp_load_matrix(lp, ar.size() - 1, &ia[0], &ja[0], &ar[0]);
+
+	printf("total row: %d\n", *ia.rbegin());
+	// printSlackTable(ar, ia, ja);
 }
 
 void Manager::ilpSolve()
 {
-	lp = glp_create_prob();
 	vector<array<vector<Node *>, 4>> slackTable;
 	formSlackTable(slackTable);
 	formulate(slackTable);
-	glp_simplex(lp, NULL);
-	glp_intopt(lp, NULL);
+
+	 glp_iocp param;
+	 glp_init_iocp(&param);
+	 param.presolve = GLP_ON;
+	
+	 glp_intopt(lp, &param);
 
 	// for (int i = 1; i <= 16; i++)
 	// {
@@ -518,4 +524,31 @@ void Manager::printILPResult()
 		printf("}\n");
 	}
 	printf("LATENCY: %d\nEND\n", latency);
+}
+
+void Manager::printSlackTable(const vector<double> &ar, const vector<int> &ia, const vector<int> &ja)
+{
+	// for (int i = 1; i < ia.size(); i++)
+	//	printf("ia[%d] ja[%d] ar[%d] =	%d	%s%d	%lf\n", i, i, i, ia[i], columnNode[ja[i]].first->name.c_str(), columnNode[ja[i]].second, ar[i]);
+
+	vector<map<string, int>> result;
+	result.resize(*ia.rbegin() + 1);
+
+	for (int i = 1; i < ia.size(); i++)
+	{
+		result[ia[i]].insert(make_pair(columnNode[ja[i]].first->name + std::to_string(columnNode[ja[i]].second), ar[i]));
+	}
+
+	for (const auto &element : result)
+	{
+		for (const auto &item : element)
+		{
+			if (item.first != element.begin()->first)
+			{
+				printf(" + ");
+			}
+			printf("%d*%s", item.second, item.first.c_str());
+		}
+		printf("\n");
+	}
 }

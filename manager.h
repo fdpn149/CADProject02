@@ -7,15 +7,16 @@
 
 class Manager
 {
-	int gate_limit[4] = {0};						 // gate maximum number
-	int gate_count_limit[3] = {0};					 // total number of gates from file
-	int latency = -1;								 // latency
-	FILE *file;										 // input file ptr
-	Node *beginNode, *endNode;						 // begin node & end node
-	map<string, Node *> nodes;						 // record node name to node self
-	vector<Node *> gateNode;						 // all gate node (and, or, not, end)
+	int gate_limit[4] = {0};	   // gate maximum number
+	int gate_count_limit[3] = {0}; // total number of gates from file
+	int latency = -1;			   // latency
+	int alap_fix = 0;
+	FILE *file;									// input file ptr
+	Node *beginNode, *endNode;					// begin node & end node
+	map<string, Node *> nodes;					// record node name to node self
+	vector<Node *> gateNode;					// all gate node (and, or, not, end)
 	vector<vector<Node *>> result_heuristic[3]; // heuristic result of gates
-	vector<Node*> logicGates[3];
+	vector<Node *> logicGates[3];
 	glp_prob *lp;						  // glp probe
 	int total_row = 0;					  // total glp rows
 	vector<pair<Node *, int>> columnNode; // glp column node & can-work time
@@ -29,6 +30,8 @@ class Manager
 	void calculate_alap(Node *node);
 	void formSlackTable(vector<array<vector<Node *>, 4>> &slackTable); // form slack table
 	void formulate(vector<array<vector<Node *>, 4>> &slackTable);	   // formulate functions
+
+	void printSlackTable(const vector<double> &ar, const vector<int> &ia, const vector<int> &ja);
 
 public:
 	Manager();	// initialize
