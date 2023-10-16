@@ -7,12 +7,13 @@
             "args": [
                 "-fdiagnostics-color=always",
                 "-g",
-                "main.cpp",
+                "B11015061.cpp",
                 "manager.cpp",
                 "node.cpp",
                 "libglpk.a",
                 "-o",
-                "${fileDirname}/main"
+                "${fileDirname}/mlrcs",
+                "-O3"
             ],
             "options": {
                 "cwd": "${fileDirname}"

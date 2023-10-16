@@ -42,6 +42,13 @@ int Manager::parseInput(char *_mode, char *filename, char *and_limit, char *or_l
 		gate_limit[NOT] = atoi(not_limit);
 		gate_limit[END] = 1;
 	}
+	int mode;
+	if (strcmp(_mode, "-h") == 0)
+		mode = 1;
+	else if (strcmp(_mode, "-e") == 0)
+		mode = 2;
+	else
+		return -1;
 
 	// read file content
 	while (fgets(buffer, 1000, file) != NULL) // getLine until EOF
@@ -59,7 +66,7 @@ int Manager::parseInput(char *_mode, char *filename, char *and_limit, char *or_l
 			break;
 	}
 	fclose(file); // close file
-	return 0;
+	return mode;
 }
 
 void Manager::getInputs()
@@ -336,7 +343,7 @@ void Manager::printResult()
 		}
 		printf("}\n");
 	}
-	printf("LATENCY: %d\nEND\n\n\n", latency);
+	printf("LATENCY: %d\nEND\n", latency);
 }
 
 void Manager::formSlackTable(vector<array<vector<Node *>, 4>> &slackTable)
@@ -354,7 +361,7 @@ void Manager::formSlackTable(vector<array<vector<Node *>, 4>> &slackTable)
 					columnNode.push_back(make_pair(node, j));
 					node->canWorkColNodeIndex[j] = columnNode.size() - 1;
 					glp_add_cols(lp, 1);
-					glp_set_col_bnds(lp, columnNode.size() - 1, GLP_DB, 0.0, 1.0);
+					//glp_set_col_bnds(lp, columnNode.size() - 1, GLP_DB, 0.0, 1.0);
 					glp_set_col_kind(lp, columnNode.size() - 1, GLP_BV);
 				}
 			}
@@ -366,7 +373,7 @@ void Manager::formSlackTable(vector<array<vector<Node *>, 4>> &slackTable)
 		columnNode.push_back(make_pair(endNode, j));
 		endNode->canWorkColNodeIndex[j] = columnNode.size() - 1;
 		glp_add_cols(lp, 1);
-		glp_set_col_bnds(lp, columnNode.size() - 1, GLP_DB, 0.0, 1.0);
+		//glp_set_col_bnds(lp, columnNode.size() - 1, GLP_DB, 0.0, 1.0);
 		glp_set_col_kind(lp, columnNode.size() - 1, GLP_BV);
 	}
 }
@@ -451,7 +458,6 @@ void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 
 	glp_load_matrix(lp, ar.size() - 1, &ia[0], &ja[0], &ar[0]);
 
-	printf("total row: %d\n", *ia.rbegin());
 	// printSlackTable(ar, ia, ja);
 }
 
@@ -461,11 +467,13 @@ void Manager::ilpSolve()
 	formSlackTable(slackTable);
 	formulate(slackTable);
 
-	 glp_iocp param;
-	 glp_init_iocp(&param);
-	 param.presolve = GLP_ON;
-	
-	 glp_intopt(lp, &param);
+	glp_iocp param;
+	glp_init_iocp(&param);
+	param.presolve = GLP_ON;
+	glp_intopt(lp, &param);
+
+	//glp_simplex(lp, NULL);
+	glp_intopt(lp, NULL);
 
 	// for (int i = 1; i <= 16; i++)
 	// {
