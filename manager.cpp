@@ -136,11 +136,11 @@ void Manager::getNames()
 		currentNode->type = NodeType::NOT;
 		logicGates[NOT].push_back(currentNode);
 		gate_count_limit[NOT]++;
-		fgets(buffer, 1000, file); // eat the redundant line
+		char* useless = fgets(buffer, 1000, file); // eat the redundant line
 	}
 	else // it may be OR/AND
 	{
-		fgets(buffer, 1000, file); // eat next line (to check)
+		char* useless = fgets(buffer, 1000, file); // eat next line (to check)
 		bool isOR = false;		   // record is OR or not
 
 		// peek next character
@@ -154,7 +154,7 @@ void Manager::getNames()
 
 			// eat redundant lines
 			for (int i = 0; i < literalCount - 2; i++)
-				fgets(buffer, 1000, file);
+				char* useless = fgets(buffer, 1000, file);
 		}
 
 		if (isOR)
@@ -182,7 +182,7 @@ void Manager::getNames()
 void Manager::toNextLine(char *&word)
 {
 	char buffer[1000];
-	fgets(buffer, 1000, file);
+	char* useless = fgets(buffer, 1000, file);
 	word = strtok(buffer, " \n");
 }
 
