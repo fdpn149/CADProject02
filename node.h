@@ -22,7 +22,7 @@ public:
 	vector<Node *> predecessor;
 	vector<Node *> successor;
 	int ready = 0;
-	map<int, int> canWorkColNodeIndex; // timeLevel / index columnNode[canWorkColNodeIndex]
+	set<int> canWork;
 	Node(NodeType type, string name);
 	static bool sortFunc( Node* a,  Node* b);
 };

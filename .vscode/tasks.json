@@ -10,9 +10,14 @@
                 "B11015061.cpp",
                 "manager.cpp",
                 "node.cpp",
-                "libglpk.a",
                 "-o",
                 "${fileDirname}/mlrcs",
+                "-I./include",
+                "-L./lib",
+                "-lgurobi_c++",
+                "-lgurobi100",
+                "-lm",
+                "-m64",
                 "-O3"
             ],
             "options": {

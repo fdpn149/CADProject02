@@ -2,8 +2,7 @@
 #include <algorithm>
 #include "lib.h"
 #include "node.h"
-#include "glpk.h"
-#include <map>
+#include "./include/gurobi_c++.h"
 
 class Manager
 {
@@ -17,9 +16,14 @@ class Manager
 	vector<Node *> gateNode;					// all gate node (and, or, not, end)
 	vector<vector<Node *>> result_heuristic[3]; // heuristic result of gates
 	vector<Node *> logicGates[3];
-	glp_prob *lp;						  // glp probe
+	//glp_prob *lp;						  // glp probe
 	int total_row = 0;					  // total glp rows
 	vector<pair<Node *, int>> columnNode; // glp column node & can-work time
+	map<string, GRBVar> variable;
+
+	GRBEnv* env;
+	GRBModel* model;
+	
 
 	void getInputs();			  // get file .inputs content
 	void getOutputs();			  // get file .outputs content

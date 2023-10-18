@@ -9,10 +9,6 @@ Manager::Manager()
 	nodes["end"] = endNode;
 
 	gateNode.push_back(endNode);
-
-	glp_term_out(GLP_OFF);	  // disable glp self output
-	columnNode.push_back({}); // let index 0 is empty (start from 1)
-	lp = glp_create_prob();
 }
 
 Manager::~Manager()
@@ -20,7 +16,6 @@ Manager::~Manager()
 	// delete all nodes
 	for (auto i : nodes)
 		delete i.second;
-	glp_delete_prob(lp); // delete glp probe
 }
 
 int Manager::parseInput(char *_mode, char *filename, char *and_limit, char *or_limit, char *not_limit)
@@ -358,11 +353,10 @@ void Manager::formSlackTable(vector<array<vector<Node *>, 4>> &slackTable)
 				for (int j = node->alap + alap_fix; j >= node->asap; j--)
 				{
 					slackTable[j][type].push_back(node);
-					columnNode.push_back(make_pair(node, j));
-					node->canWorkColNodeIndex[j] = columnNode.size() - 1;
-					glp_add_cols(lp, 1);
-					//glp_set_col_bnds(lp, columnNode.size() - 1, GLP_DB, 0.0, 1.0);
-					glp_set_col_kind(lp, columnNode.size() - 1, GLP_BV);
+					string var_name = node->name + "_" + std::to_string(j);
+					GRBVar newVar = model->addVar(0.0, 1.0, 0.0, GRB_BINARY, var_name);
+					variable[var_name] = newVar;
+					node->canWork.insert(j);
 				}
 			}
 		}
@@ -370,64 +364,69 @@ void Manager::formSlackTable(vector<array<vector<Node *>, 4>> &slackTable)
 	for (int j = latency + 1; j >= endNode->asap; j--)
 	{
 		slackTable[j][END].push_back(endNode);
-		columnNode.push_back(make_pair(endNode, j));
-		endNode->canWorkColNodeIndex[j] = columnNode.size() - 1;
-		glp_add_cols(lp, 1);
-		//glp_set_col_bnds(lp, columnNode.size() - 1, GLP_DB, 0.0, 1.0);
-		glp_set_col_kind(lp, columnNode.size() - 1, GLP_BV);
+		string var_name = endNode->name + "_" + std::to_string(j);
+		GRBVar newVar = model->addVar(0.0, 1.0, 0.0, GRB_BINARY, var_name);
+		variable[var_name] = newVar;
+		endNode->canWork.insert(j);
 	}
 }
 
 void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 {
-	glp_set_obj_dir(lp, GLP_MIN);
+	vector<vector<double>> expr_coeff;
+	vector<vector<GRBVar>> expr_var;
+	vector<GRBLinExpr> constr_expr;
+	vector<char> sense;
+	vector<double> rhs;
+	vector<string> name;
 
-	vector<double> ar(1, 0.0);
-	vector<int> ia(1, 0), ja(1, 0);
-
-	int same = 0, order = 0, level = 0;
 	for (const auto &node : gateNode)
 	{
 		// x2 + x1 = 1
-		if (!node->canWorkColNodeIndex.empty())
+		if (!node->canWork.empty())
 		{
-			total_row++;
-			glp_add_rows(lp, 1);
-			glp_set_row_bnds(lp, total_row, GLP_FX, 1.0, 1.0);
+			vector<double> term_coeff;
+			vector<GRBVar> term_var;
+			GRBLinExpr expr;
 
-			for (const auto &canWorkColIndex : node->canWorkColNodeIndex)
+			for (const auto &canWork : node->canWork)
 			{
-				ia.push_back(total_row);
-				ja.push_back(canWorkColIndex.second);
-				ar.push_back(1.0);
+				term_coeff.push_back(1.0);
+				term_var.push_back(variable[node->name + "_" + to_string(canWork)]);
 			}
+			expr.addTerms(&term_coeff[0], &term_var[0], term_coeff.size());
+			constr_expr.push_back(expr);
+			sense.push_back(GRB_EQUAL);
+			rhs.push_back(1.0);
 		}
 
 		// 3x3 + 2x2 - 2y2 - 1y1 >= 1
 		for (auto parentNode : node->successor)
 		{
-			// if (!parentNode->canWorkColNodeIndex.empty() && !node->canWorkColNodeIndex.empty())
-			// {
-			if (parentNode->canWorkColNodeIndex.begin()->first <= node->canWorkColNodeIndex.rbegin()->first)
+			if (!parentNode->canWork.empty() && !node->canWork.empty())
 			{
-				total_row++;
-				glp_add_rows(lp, 1);
-				glp_set_row_bnds(lp, total_row, GLP_LO, 1.0, 0.0);
+				if (*parentNode->canWork.begin() <= *node->canWork.rbegin())
+				{
+					vector<double> term_coeff;
+					vector<GRBVar> term_var;
+					GRBLinExpr expr;
 
-				for (const auto &parentCanWorkColIndex : parentNode->canWorkColNodeIndex)
-				{
-					ia.push_back(total_row);
-					ja.push_back(parentCanWorkColIndex.second);
-					ar.push_back(columnNode[parentCanWorkColIndex.second].second);
-				}
-				for (const auto &canWorkColIndex : node->canWorkColNodeIndex)
-				{
-					ia.push_back(total_row);
-					ja.push_back(canWorkColIndex.second);
-					ar.push_back(-columnNode[canWorkColIndex.second].second);
+					for (const auto &parentCanWork : parentNode->canWork)
+					{
+						term_coeff.push_back(parentCanWork);
+						term_var.push_back(variable[parentNode->name + "_" + to_string(parentCanWork)]);
+					}
+					for (const auto &canWork : node->canWork)
+					{
+						term_coeff.push_back(-canWork);
+						term_var.push_back(variable[node->name + "_" + to_string(canWork)]);
+					}
+					expr.addTerms(&term_coeff[0], &term_var[0], term_coeff.size());
+					constr_expr.push_back(expr);
+					sense.push_back(GRB_GREATER_EQUAL);
+					rhs.push_back(1.0);
 				}
 			}
-			// }
 		}
 	}
 
@@ -436,65 +435,74 @@ void Manager::formulate(vector<array<vector<Node *>, 4>> &slackTable)
 	{
 		for (int type = AND; type <= NOT; type++)
 		{
-			if (!slackTable[i][type].empty())
+			if (slackTable[i][type].size() > gate_limit[type])
 			{
-				total_row++;
-				glp_add_rows(lp, 1);
-				glp_set_row_bnds(lp, total_row, GLP_UP, 0.0, (double)gate_limit[type]);
+				vector<double> term_coeff;
+				vector<GRBVar> term_var;
+				GRBLinExpr expr;
+
 				for (const auto &node : slackTable[i][type])
 				{
-					ia.push_back(total_row);
-					ja.push_back(node->canWorkColNodeIndex[i]);
-					ar.push_back(1.0);
+					term_coeff.push_back(1.0);
+					term_var.push_back(variable[node->name + "_" + to_string(i)]);
 				}
+
+				expr.addTerms(&term_coeff[0], &term_var[0], term_coeff.size());
+				constr_expr.push_back(expr);
+				sense.push_back(GRB_LESS_EQUAL);
+				rhs.push_back((double)gate_limit[type]);
 			}
 		}
 	}
+	name.resize(constr_expr.size());
+	model->addConstrs(&constr_expr[0], &sense[0], &rhs[0], &name[0], constr_expr.size());
+	GRBLinExpr target_expr;
+	vector<double> target_term_coeff;
+	vector<GRBVar> target_term_var;
 
-	for (const auto &nodeIndex : endNode->canWorkColNodeIndex)
+	for (const auto &nodeIndex : endNode->canWork)
 	{
-		glp_set_obj_coef(lp, nodeIndex.second, nodeIndex.first);
+		target_term_coeff.push_back(nodeIndex);
+		target_term_var.push_back(variable[endNode->name + "_" + to_string(nodeIndex)]);
 	}
-
-	glp_load_matrix(lp, ar.size() - 1, &ia[0], &ja[0], &ar[0]);
-
-	// printSlackTable(ar, ia, ja);
+	target_expr.addTerms(&target_term_coeff[0], &target_term_var[0], target_term_coeff.size());
+	model->setObjective(target_expr, GRB_MINIMIZE);
 }
 
 void Manager::ilpSolve()
 {
 	vector<array<vector<Node *>, 4>> slackTable;
+
+	env = new GRBEnv(true);
+	env->start();
+	model = new GRBModel(env);
+
 	formSlackTable(slackTable);
 	formulate(slackTable);
 
-	glp_iocp param;
-	glp_init_iocp(&param);
-	param.presolve = GLP_ON;
-	glp_intopt(lp, &param);
-
-	//glp_simplex(lp, NULL);
-	glp_intopt(lp, NULL);
-
-	// for (int i = 1; i <= 16; i++)
-	// {
-	// 	printf("%s%d \t %lf\n", columnNode[i].first->name.c_str(), columnNode[i].second, glp_mip_col_val(lp, i));
-	// }
+	model->optimize();
 }
 
 void Manager::printILPResult()
 {
 	vector<array<vector<string>, 3>> result;
-	int total_columns = glp_get_num_cols(lp);
-	for (int i = 1; i <= total_columns; i++)
-	{
-		if (glp_mip_col_val(lp, i) == 1.0)
-		{
-			auto nodeTime = columnNode[i];
-			if (nodeTime.first->type != NodeType::END && result.size() < nodeTime.second + 1)
-				result.resize(nodeTime.second + 1);
 
-			if (nodeTime.first->type != NodeType::END)
-				result[nodeTime.second][nodeTime.first->type].push_back(nodeTime.first->name);
+	int total_vars = variable.size();
+
+	for (const auto &var : variable)
+	{
+		if (var.second.get(GRB_DoubleAttr_X) == 1.0)
+		{
+			string var_name = var.second.get(GRB_StringAttr_VarName);
+			int var_time = std::stoi(var_name.substr(var_name.find_last_of('_') + 1, var_name.size() - 1));
+			var_name = var_name.substr(0, var_name.find_last_of('_'));
+			NodeType var_type = nodes[var_name]->type;
+			if (var_type != NodeType::END)
+			{
+				if (result.size() < var_time + 1)
+					result.resize(var_time + 1);
+				result[var_time][var_type].push_back(var_name);
+			}
 		}
 	}
 
@@ -532,31 +540,7 @@ void Manager::printILPResult()
 		printf("}\n");
 	}
 	printf("LATENCY: %d\nEND\n", latency);
-}
 
-void Manager::printSlackTable(const vector<double> &ar, const vector<int> &ia, const vector<int> &ja)
-{
-	// for (int i = 1; i < ia.size(); i++)
-	//	printf("ia[%d] ja[%d] ar[%d] =	%d	%s%d	%lf\n", i, i, i, ia[i], columnNode[ja[i]].first->name.c_str(), columnNode[ja[i]].second, ar[i]);
-
-	vector<map<string, int>> result;
-	result.resize(*ia.rbegin() + 1);
-
-	for (int i = 1; i < ia.size(); i++)
-	{
-		result[ia[i]].insert(make_pair(columnNode[ja[i]].first->name + std::to_string(columnNode[ja[i]].second), ar[i]));
-	}
-
-	for (const auto &element : result)
-	{
-		for (const auto &item : element)
-		{
-			if (item.first != element.begin()->first)
-			{
-				printf(" + ");
-			}
-			printf("%d*%s", item.second, item.first.c_str());
-		}
-		printf("\n");
-	}
+	delete env;
+	delete model;
 }

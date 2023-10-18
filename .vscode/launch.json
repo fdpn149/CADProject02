@@ -5,10 +5,15 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${fileDirname}/mlrcs",
-            "args": ["-e", "./blif/aoi_sample02.blif", "2", "1", "1"],
+            "args": ["-e", "./blif/aoi_C1355.blif", "20", "20", "20"],
             "stopAtEntry": false,
             "cwd": "${fileDirname}",
-            "environment": [],
+            "environment": [
+                {
+                    "name": "LD_LIBRARY_PATH",
+                    "value": "${LD_LIBRARY_PATH}:./lib/"
+                }
+            ],
             "externalConsole": false,
             "MIMode": "gdb",
             "setupCommands": [
